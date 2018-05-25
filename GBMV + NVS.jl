@@ -105,12 +105,12 @@ inst = Instance("gbmv240_01.ins")
     
 
 type Solution
-    G
-
+    G #Gvg 1 -> elemento v pertence ao grupo g ; 0 -> c.c.
+    groupsVal #somatório dos pesos do grupo, adicionado como redundância para desempenho
     function Solution(instance)
         g = instance.g
         
-        G = zeros(instance.n)
+        G = zeros(instance.n, instance.g)
         groupsVal = zeros(g)
         
         for i = 1:g
@@ -118,8 +118,8 @@ type Solution
             currentVal = 0
             while(currentVal<instance.L[i])
                 diced = rand(1:instance.n)
-                if(G[diced] == 0)
-                    G[diced] = i
+                if(sum(G[diced, j] for j =1:g) == 0)
+                    G[diced, i] = 1
                     currentVal += instance.P[diced]
                 end
             end
@@ -130,10 +130,10 @@ type Solution
         currentGroup = 1
         i = 1
         while (i <=instance.n)
-            if(G[i] == 0)
+            if(sum(G[i, j] for j=1:g) == 0)
                 if(groupsVal[currentGroup] + instance.P[i] 
                         <= instance.U[currentGroup])
-                    G[i] = currentGroup
+                    G[i, currentGroup] = 1
                     groupsVal[currentGroup] += instance.P[i]
                     i+=1
                 elseif(currentGroup > g)
@@ -145,11 +145,27 @@ type Solution
                 i+=1
             end
         end
-        new(G)
+        new(G, groupsVal)
     end
 end
 
 S = Solution(inst)
 
 
+function evaluate(instance, solution)
+    #Objetivo : Maximizar o valor total das arestas entre vértices 
+    #do mesmo grupo
+    
+    sameGroup = zeros(instance.n, instance.n)
+    
+    for i =1:instance.n-1
+        for j = i+1:instance.n
+            sameGroup[i,j] = sum(solution.G[i, g] * solution.G[j, g] for g = 1:instance.g)#1-> i e j estão no mesmo grupo, 0 ->c.c.
+        end
+    end
+    return sum(instance.A[i,j] * sameGroup[i, j] for i =1:instance.n-1, for j=i+1 :instance.n)
+    
+end
+
+evaluate(inst, S)
 
