@@ -22,31 +22,6 @@
     
 # Code by : William Wilbert Vargas
 
-#Construção de solução inicial:
-#para cada grupo g:
-    #currentVal = 0
-    #Adiciona aleatóriamente até passar Lg
-    #enquanto currentVal<Lg:
-        #adiciona em G algum vértice aleatório v não atribuído
-        #currentVal+= Pv
-    #Remove excesso se houver
-    #enquanto currentVal>Ug:
-        #remove vértice u de G com menor valor
-        #currentVal-= Pu
-    #Tenta de novo se agora o valor é muito pequeno 
-    #adicionando em ordem e não mais aleatóriamente
-    #se currentVal<Lg
-        #remove todos os vértices de G
-        # adiciona dos restantes em ordem crescente até que
-        # currentVal>=Lg
-    #Se mesmo assim não funciona recomeça tudo
-    #se currentVal>Ug
-        #Falha de criação 
-        #reinicia todo o processo para todos os grupos
-
-# Para os vértices v restantes:
-    #insere em um grupo g qualquer tal que o valor de g somado a Pv seja menor que Uv
-    
 
 #Ideias para vizinhança - Todas assumindo que a solução se mantém viável - em ordem crescente de número de vizinhos no caso médio:
     # 0) 
@@ -112,4 +87,69 @@ type Instance
     end
 end
 
-Instance("gbmv240_01.ins")
+inst = Instance("gbmv240_01.ins")
+
+#Uma solução para o problema é uma associação de cada um dos n vértices para um grupo do qual pertence
+
+#Ideias para geração da solução inicial
+  #1) Completamente aleatória : insere elementos nos grupos até 
+    #passar L e depois insere os restantes nos grupos que ainda 
+    #possuem espaço
+  #2) Buscando uma solução inicial boa algoritmo guloso (Dúvida 
+    #se posso usar e manter como VNS, já que é ideia do GRASP): 
+    #insere em um grupo os elementos da melhor aresta disponível, 
+    #em seguida de forma gulos adiciona elementos ao grupo até o 
+    #que o peso inferior seja ultrapassado de modo que os 
+    #elementos adicionados trazem consigo a maior aresta entre um 
+    #elemento já no grupo e esse novo elemento.
+    
+
+type Solution
+    G
+
+    function Solution(instance)
+        g = instance.g
+        
+        G = zeros(instance.n)
+        groupsVal = zeros(g)
+        
+        for i = 1:g
+            
+            currentVal = 0
+            while(currentVal<instance.L[i])
+                diced = rand(1:instance.n)
+                if(G[diced] == 0)
+                    G[diced] = i
+                    currentVal += instance.P[diced]
+                end
+            end
+            groupsVal[i] = currentVal
+            
+        end
+        
+        currentGroup = 1
+        i = 1
+        while (i <=instance.n)
+            if(G[i] == 0)
+                if(groupsVal[currentGroup] + instance.P[i] 
+                        <= instance.U[currentGroup])
+                    G[i] = currentGroup
+                    groupsVal[currentGroup] += instance.P[i]
+                    i+=1
+                elseif(currentGroup > g)
+                    println("Deu ruim, sem espaço nos grupos para criar disjunções dos vértices")
+                else
+                    currentGroup+=1
+                end
+            else
+                i+=1
+            end
+        end
+        new(G)
+    end
+end
+
+S = Solution(inst)
+
+
+
