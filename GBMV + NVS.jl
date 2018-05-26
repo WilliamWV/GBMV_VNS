@@ -160,12 +160,26 @@ function evaluate(instance, solution)
     
     for i =1:instance.n-1
         for j = i+1:instance.n
-            sameGroup[i,j] = sum(solution.G[i, g] * solution.G[j, g] for g = 1:instance.g)#1-> i e j estão no mesmo grupo, 0 ->c.c.
+            sameGroup[i,j]=sum(solution.G[i,g]*solution.G[j, g] for g = 1:instance.g)#1-> i e j estão no mesmo grupo,0 ->c.c.
         end
     end
-    return sum(instance.A[i,j] * sameGroup[i, j] for i =1:instance.n-1, for j=i+1 :instance.n)
+    return sum(instance.A[i,j] * sameGroup[i, j] for i =1:instance.n-1 for j=i+1:instance.n)
     
 end
 
 evaluate(inst, S)
+
+
+function Movement(best, candidate, k)
+    if (evaluate(inst, candidate) > evaluate(inst, best))
+        best = candidate
+        k = 1
+    else
+        k+=1
+    end
+    return (best,k)
+end
+
+
+
 
