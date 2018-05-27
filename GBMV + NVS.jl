@@ -180,6 +180,76 @@ function Movement(best, candidate, k)
     return (best,k)
 end
 
+# 0) 
+        #para cada possível dupla de grupos troca um dos
+        #participantes da aresta compartilhada de maior valor
+        #O(g*g) vizinhos 
+    # 1) 
+        #Para cada grupo, trocar o vértice v cujo aproveitamento precentual é menor, ou seja o vértice cuja soma das arestas 
+        #que participa que são internas ao grupo divida pela soma total dos valores das arestas seja menor O(g*g)
+     
+    # 2)
+        #escolher vértice e trocá-lo de grupo : O(n*g) vizinhos
+    # 3) 
+        #Para cada aresta compartilhada entre grupos trocar um dos elementos da aresta de grupo: O(n*n) vizinhos (percorre 
+        #arestas e ve as são compartilhadas)
+type Neigh0 
+    g1
+    g2
+    function Neigh0()
+        new(1, 2)
+    end
+end
+
+function next(N0::Neigh0, instance, solution)
+    G1 = solution.G[:,N0.g1]
+    G2 = solution.G[:,N0.g2]
+    maxEdgeN1 = 0
+    maxEdgeN2 = 0
+    maxEdgeVal = 0
+    direction = -1 # direction=0 : vértice sai de g1 para g2, direction=1 : oposto; direction=-1 sem trocas válidas
+    for i = 1:instance.n-1
+        for j = i+1:instance.n
+            if (G1[i] * G2[j] * instance.A[i, j] > maxEdgeVal)
+                if (solution.groupsVal[N0.g1]-instance.P[i]>=instance.L[N0.g1]&&solution.groupsVal[N0.g2]+instance.P[i]<=instance.U[N0.g2])
+                    direction = 0
+                    maxEdgeN1 = i
+                    maxEdgeN2 = j
+                    maxEdgeVal = instance.A[i,j]
+                elseif(solution.groupsVal[N0.g1]+instance.P[j]<=instance.U[N0.g1]&&solution.groupsVal[N0.g2]-instance.P[j]>=instance.L[N0.g2])
+                    direction = 1
+                    maxEdgeN1 = i
+                    maxEdgeN2 = j
+                    maxEdgeVal = instance.A[i,j]
+                end
+            end
+        end
+    end
+    if (direction == 0)
+        NS = solution
+        NS.G[maxEdgeN1, N0.g1] = 0
+        NS.G[maxEdgeN1, N0.g2] = 1
+        NS.groupsVal[N0.g1] -=instance.P[maxEdgeN1]
+        NS.groupsVal[N0.g2] +=instance.P[maxEdgeN1]
+        return NS
+    elseif (direction == 0)
+        NS = solution
+        NS.G[maxEdgeN2, N0.g1] = 1
+        NS.G[maxEdgeN2, N0.g2] = 0
+        NS.groupsVal[N0.g1] +=instance.P[maxEdgeN1]
+        NS.groupsVal[N0.g2] -=instance.P[maxEdgeN1]
+        return NS
+    else
+        return nothing
+    end
+    
+end
 
 
 
+a = now() 
+for i=1:10000000
+    1+1
+end
+b = now()
+Base.Dates.Hour(1) > Base.Dates.Minute(59)
