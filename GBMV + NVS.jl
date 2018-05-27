@@ -379,7 +379,53 @@ function next(N2::Neigh2, instance, solution)
             
 end
 
+type Neigh3
+    v1
+    v2
+    function Neigh3()
+        new(1, 2)
+    end
+end
 
+function next(N3::Neigh3, instance, solution)
+    g1 = getGroupOfVertex(N3.v1)
+    g2 = getGroupOfVertex(N3.v2)
+    
+    direction = -1 # direction=0 : vértice sai de g1 para g2, direction=1 : oposto; direction=-1 sem trocas válidas
+    NS = nothing
+    if (g1 != g2)
+        
+        if (solution.groupsVal[g1] - instance.P[N3.v1] >= instance.L[g1] && solution.groupsVal[g2] + instance.P[N3.v1] <= instance.U[g2])
+            NS = solution
+            NS.G[N3.v1, g1] = 0
+            NS.G[N3.v1, g2] = 1
+            NS.groupsVal[g1] -= instance.P[N3.v1]
+            NS.groupsVal[g2] += instance.P[N3.v1]
+        elseif (solution.groupsVal[g2] - instance.P[N3.v2] >= instance.L[g2] && solution.groupsVal[g1] + instance.P[N3.v2] <= instance.U[g1])
+            NS = solution
+            NS.G[N3.v2, g1] = 1
+            NS.G[N3.v2, g2] = 0
+            NS.groupsVal[g1] += instance.P[N3.v2]
+            NS.groupsVal[g2] -= instance.P[N3.v2]
+        end
+    end
+    if (N3.v2<instance.n)
+        N3.v2 +=1
+    elseif (N3.v1<instance.n-1)
+        N3.v1+=1
+        N3.v2=1
+    else
+        N3.v2 = 0 #invalid
+    end
+    if (NS != nothing)
+        return NS
+    elseif(N3.v2!=0)
+        return next(N3, instance, solution)
+    else
+        return nothing
+    end
+        
+end
 
 
 a = now() 
