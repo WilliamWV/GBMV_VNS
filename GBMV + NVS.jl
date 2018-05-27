@@ -184,6 +184,15 @@ function VertexIsOfGroup(vertex, group, solution)
     return solution.G[vertex, group] == 1
 end
 
+function getGroupOfVertex(vertex, solution)
+    for i=1:size(solution.G[vertex,:])
+        if(solution.G[vertex, i] == 1)
+            return i
+        end
+        
+    end
+end
+
 # 0) 
         #para cada possível dupla de grupos troca um dos
         #participantes da aresta compartilhada de maior valor
@@ -324,9 +333,50 @@ function next(N1::Neigh1, instance, solution)
             return next(N1, instance, solution)
         else
             return nothing
-            
+        end
     end
     
+end
+
+type Neigh2
+    vertex
+    group
+    function Neigh2()
+        new(1, 1)
+    end
+end
+
+function next(N2::Neigh2, instance, solution)
+    NS = nothing
+    if(!VertexIsOfGroup(N2.vertex, N2.group, solution))
+        
+        NS = solution
+        gSrc = getGroupOfVertex(N2.vertex)
+        if (solution.groupsVal[gSrc] - instance.P[N2.vertex] >= instance.L[gSrc] && solution.groupsVal[N2.group] + instance.P[N2.vertex] <= instance.U[N2.group])
+            NS.G[N2.vertex, gSrc] = 0
+            NS.G[N2.vertex, N2.group] = 1
+            NS.gruopsVal[gSrc] -= instance.P[N2.vertex]
+            NS.gruopsVal[N2.group] += instance.P[N2.vertex]
+        
+        end
+    end
+    
+    if(N2.group < instance.g)
+        N2.gruop+=1
+    elseif (N2.vertex <instance.n)
+        N2.group = 1
+        N2.vertex+=1
+    else
+        N2.group = 0  #invalid
+    end
+    if(NS != nothing)
+        return NS
+    elseif(N2.group != 0)
+        return next(N2, instance, solution)
+    else
+        return nothing
+    end
+            
 end
 
 
