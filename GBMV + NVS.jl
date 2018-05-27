@@ -180,6 +180,10 @@ function Movement(best, candidate, k)
     return (best,k)
 end
 
+function VertexIsOfGroup(vertex, group, solution)
+    return solution.G[vertex, group] == 1
+end
+
 # 0) 
         #para cada possível dupla de grupos troca um dos
         #participantes da aresta compartilhada de maior valor
@@ -193,6 +197,8 @@ end
     # 3) 
         #Para cada aresta compartilhada entre grupos trocar um dos elementos da aresta de grupo: O(n*n) vizinhos (percorre 
         #arestas e ve as são compartilhadas)
+
+##UMA INSTANCIA NOVA DEVE SER CRIADA QUANDO A SOLUÇÃO É TROCADA
 type Neigh0 
     g1
     g2
@@ -225,25 +231,104 @@ function next(N0::Neigh0, instance, solution)
             end
         end
     end
+    
+    
+    NS = solution
     if (direction == 0)
-        NS = solution
         NS.G[maxEdgeN1, N0.g1] = 0
         NS.G[maxEdgeN1, N0.g2] = 1
         NS.groupsVal[N0.g1] -=instance.P[maxEdgeN1]
         NS.groupsVal[N0.g2] +=instance.P[maxEdgeN1]
-        return NS
     elseif (direction == 0)
-        NS = solution
         NS.G[maxEdgeN2, N0.g1] = 1
         NS.G[maxEdgeN2, N0.g2] = 0
         NS.groupsVal[N0.g1] +=instance.P[maxEdgeN1]
         NS.groupsVal[N0.g2] -=instance.P[maxEdgeN1]
+    else
+        NS = nothing
+    end
+    #Configure to next 
+    if (N0.g2 < instance.g)
+        N0.g2+=1
+    elseif(N0.g1 < instance.g - 1)
+        N0.g1+=1
+        N0.g2 = N0.g1 + 1
+    else
+        #invalid
+        N0.g1 = 0
+        N0.g2 = 0
+    end
+    if (NS != nothing)
         return NS
+    elseif (N0.g1 != 0)
+        return next(N0, instance, solution)
     else
         return nothing
     end
+end
+
+type Neigh1 
+    gSrc
+    gDest
+    function Neigh1()
+        new(1, 2)
+    end
+end
+
+function next(N1::Neigh1, instance, solution)
+    
+    worstVertex = 0
+    worstVal = 1.0
+    for i = 1:instance.n
+        if(VertexIsOfGroup(i, N1.gSrc, solution))
+            #Calcula aproveitamento
+            total = sum(instance.A[i,j] + instance.A[j,i] for j=1:instance.n) # A tabela de arestas é triangular, logo somar pela linha i e pela coluna i significa somar o valor de todas as arestas do vértice i
+            inGroup = sum((instance.A[i,j] + instance.A[j,i]) * solution.G[j,N1.gSrc] for j = 1:instance.n)
+            
+            exploitation = inGroup/total
+            if (exploitation < worstVal && solution.groupsVal[N1.gSrc] - instance.P[i] >= instance.L[N1.gSrc] && solution.grupsVal[N1.gDest] + instance.P[i] <= instance.U[N1.gDest])
+                worstVertex = i
+                worstVal = exploitation
+            end
+            
+        end
+        NS = solution
+        if(worstVertex != 0)
+            NS.G[worstVertex, N1.gSrc] = 0
+            NS.G[worstVertex, N1.gDest] = 1
+            NS.groupsVal[N1.gSrc] -= instance.P[worstVertex]
+            NS.groupsVal[N1.gDest] += instance.P[worstVertex]
+        else
+            NS = nothing
+        end
+        if(N1.gDest < instance.g )
+            if ((N1.gDest + 1)!= N1.gSrc)
+                N1.gDest+=1
+                
+            #dest = g-1 #src = g
+            elseif(N1.gDest + 1 == instance.g) 
+                N1.gDest = 0 #invalid
+            else
+                N1.gDest+=2
+            end
+        elseif(N1.gSrc<instance.g)
+            N1.gSrc +=1
+            N1.gDest = 1
+        else
+            N1.gDest = 0 # invalid
+        
+        end
+        if (NS!=nothing)
+            return NS
+        elseif N1.gDest!=0
+            return next(N1, instance, solution)
+        else
+            return nothing
+            
+    end
     
 end
+
 
 
 
