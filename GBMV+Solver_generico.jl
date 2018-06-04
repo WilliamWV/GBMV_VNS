@@ -2,7 +2,7 @@
 using JuMP
 using GLPKMathProgInterface
 
-m = Model(solver=GLPKSolverMIP(msg_lev=GLPK.MSG_ON, tm_lim=1))
+m = Model(solver=GLPKSolverMIP(msg_lev=GLPK.MSG_ON))
 
 type Instance
     n :: Int64
@@ -43,7 +43,7 @@ type Instance
     end
 end
 
-inst = Instance("gbmv240_01.ins")
+inst = Instance("instanciaTeste5.ins")
 
 n = inst.n
 g = inst.g
@@ -56,7 +56,7 @@ U = inst.U
 @variable(m, S[1:n, 1:n, 1:g], Bin)
 @variable(m, St[1:n, 1:n], Bin)
 
-@objective(m, Max, sum(A[i, j] * S[i, j] for i=1:n, j=1:n))
+@objective(m, Max, sum(A[i, j] * St[i, j] for i=1:n, j=1:n))
 @constraint(m, [i=1:n], sum(G[i, j] for j=1:g)== 1)
 @constraint(m, [i=1:n, j=1:n, k=1:g], S[i,j,k] <= (G[i, k] + G[j,k])/2)
 @constraint(m, [i=1:n, j=1:n, k=1:g], S[i,j,k] >= G[i, k] + G[j,k] - 1)
@@ -72,4 +72,8 @@ getobjectivevalue(m)
 
 
 getValue(G)
+
+
+println(m)
+
 
