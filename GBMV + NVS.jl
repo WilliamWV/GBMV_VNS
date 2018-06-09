@@ -1,4 +1,6 @@
 
+
+srand(42)
 #Projeto:
 
     #Instância:
@@ -156,6 +158,10 @@ function evaluate(instance, solution)
     #Objetivo : Maximizar o valor total das arestas entre vértices 
     #do mesmo grupo
     
+    if solution == nothing
+        return 0
+    end
+    
     sameGroup = zeros(instance.n, instance.n)
     
     for i =1:instance.n-1
@@ -208,15 +214,12 @@ end
         #arestas e ve as são compartilhadas)
 
 ##UMA INSTANCIA NOVA DEVE SER CRIADA QUANDO A SOLUÇÃO É TROCADA
-type Neigh0 
+struct Neigh0 
     g1
     g2
-    function Neigh0()
-        new(1, 2)
-    end
 end
 
-function next(N0::Neigh0, instance, solution)
+function nextN0(N0, instance, solution)
     G1 = solution.G[:,N0.g1]
     G2 = solution.G[:,N0.g2]
     maxEdgeN1 = 0
@@ -256,46 +259,106 @@ function next(N0::Neigh0, instance, solution)
     else
         NS = nothing
     end
+    
+    
     #Configure to next 
     if (N0.g2 < instance.g)
-        N0.g2+=1
+        Ng1 = N0.g1
+        Ng2= N0.g2 + 1
     elseif(N0.g1 < instance.g - 1)
-        N0.g1+=1
-        N0.g2 = N0.g1 + 1
+        Ng1= N0.g1 + 1
+        Ng2 = N0.g1 + 2
     else
         #invalid
-        N0.g1 = 0
-        N0.g2 = 0
+        Ng1 = 0
+        Ng2 = 0
     end
+    newN0 = Neigh0(Ng1, Ng2)
     if (NS != nothing)
-        return NS
-    elseif (N0.g1 != 0)
-        return next(N0, instance, solution)
+        return (NS, newN0)
+    elseif (Ng1 != 0)
+        
+        return nextN0(newN0, instance, solution)
     else
         return nothing
     end
 end
 
-type Neigh1 
-    gSrc
-    gDest
-    function Neigh1()
-        new(1, 2)
+
+
+
+function randomN0(instance, solution)
+    g1 = rand(1:instance.g)
+    g2 = rand(1:instance.g)
+    while g2 == g1
+        g2 = rand(1:instance.g)
     end
+    
+    G1 = solution.G[:,g1]
+    G2 = solution.G[:,g2]
+    maxEdgeN1 = 0
+    maxEdgeN2 = 0
+    maxEdgeVal = 0
+    direction = -1 # direction=0 : vértice sai de g1 para g2, direction=1 : oposto; direction=-1 sem trocas válidas
+    for i = 1:instance.n-1
+        for j = i+1:instance.n
+            if (G1[i] * G2[j] * instance.A[i, j] > maxEdgeVal)
+                if (solution.groupsVal[g1]-instance.P[i]>=instance.L[g1]&&solution.groupsVal[g2]+instance.P[i]<=instance.U[g2])
+                    direction = 0
+                    maxEdgeN1 = i
+                    maxEdgeN2 = j
+                    maxEdgeVal = instance.A[i,j]
+                elseif(solution.groupsVal[g1]+instance.P[j]<=instance.U[g1]&&solution.groupsVal[g2]-instance.P[j]>=instance.L[g2])
+                    direction = 1
+                    maxEdgeN1 = i
+                    maxEdgeN2 = j
+                    maxEdgeVal = instance.A[i,j]
+                end
+            end
+        end
+    end
+    
+    
+    NS = solution
+    if (direction == 0)
+        NS.G[maxEdgeN1, g1] = 0
+        NS.G[maxEdgeN1, g2] = 1
+        NS.groupsVal[g1] -=instance.P[maxEdgeN1]
+        NS.groupsVal[g2] +=instance.P[maxEdgeN1]
+    elseif (direction == 0)
+        NS.G[maxEdgeN2, g1] = 1
+        NS.G[maxEdgeN2, g2] = 0
+        NS.groupsVal[g1] +=instance.P[maxEdgeN1]
+        NS.groupsVal[g2] -=instance.P[maxEdgeN1]
+    else
+        NS = nothing
+    end
+    
+    if (NS != nothing)
+        return NS
+    else
+        return randomN0(instance, solution)
+    end
+    
 end
 
-function next(N1::Neigh1, instance, solution)
-    
+function randomN1(instance, solution)
     worstVertex = 0
     worstVal = 1.0
+    gSrc = rand(1:instance.g)
+    gDest = rand(1:instance.g)
+    while gDest == gSrc
+        gDest = rand(1:instance.g)
+    end
+    
     for i = 1:instance.n
-        if(VertexIsOfGroup(i, N1.gSrc, solution))
+        if(VertexIsOfGroup(i, gSrc, solution))
             #Calcula aproveitamento
             total = sum(instance.A[i,j] + instance.A[j,i] for j=1:instance.n) # A tabela de arestas é triangular, logo somar pela linha i e pela coluna i significa somar o valor de todas as arestas do vértice i
             inGroup = sum((instance.A[i,j] + instance.A[j,i]) * solution.G[j,N1.gSrc] for j = 1:instance.n)
             
             exploitation = inGroup/total
-            if (exploitation < worstVal && solution.groupsVal[N1.gSrc] - instance.P[i] >= instance.L[N1.gSrc] && solution.grupsVal[N1.gDest] + instance.P[i] <= instance.U[N1.gDest])
+            if (exploitation < worstVal && solution.groupsVal[gSrc] - instance.P[i] >= instance.L[gSrc] && solution.grupsVal[gDest] + instance.P[i] <= instance.U[gDest])
                 worstVertex = i
                 worstVal = exploitation
             end
@@ -310,127 +373,126 @@ function next(N1::Neigh1, instance, solution)
         else
             NS = nothing
         end
-        if(N1.gDest < instance.g )
-            if ((N1.gDest + 1)!= N1.gSrc)
-                N1.gDest+=1
-                
-            #dest = g-1 #src = g
-            elseif(N1.gDest + 1 == instance.g) 
-                N1.gDest = 0 #invalid
-            else
-                N1.gDest+=2
-            end
-        elseif(N1.gSrc<instance.g)
-            N1.gSrc +=1
-            N1.gDest = 1
-        else
-            N1.gDest = 0 # invalid
         
-        end
         if (NS!=nothing)
             return NS
-        elseif N1.gDest!=0
-            return next(N1, instance, solution)
         else
-            return nothing
+            return randomN1(instance, solution)
         end
+        
     end
+end
+
+function randomN2(instance, solution)
     
-end
-
-type Neigh2
-    vertex
-    group
-    function Neigh2()
-        new(1, 1)
-    end
-end
-
-function next(N2::Neigh2, instance, solution)
-    NS = nothing
-    if(!VertexIsOfGroup(N2.vertex, N2.group, solution))
+    vertex = rand(instance.n)
+    group = rand(instance.g)
+    
+NS = nothing
+    if(!VertexIsOfGroup(vertex, group, solution))
         
         NS = solution
-        gSrc = getGroupOfVertex(N2.vertex)
-        if (solution.groupsVal[gSrc] - instance.P[N2.vertex] >= instance.L[gSrc] && solution.groupsVal[N2.group] + instance.P[N2.vertex] <= instance.U[N2.group])
-            NS.G[N2.vertex, gSrc] = 0
-            NS.G[N2.vertex, N2.group] = 1
-            NS.gruopsVal[gSrc] -= instance.P[N2.vertex]
-            NS.gruopsVal[N2.group] += instance.P[N2.vertex]
+        gSrc = getGroupOfVertex(vertex)
+        if (solution.groupsVal[gSrc] - instance.P[vertex] >= instance.L[gSrc] && solution.groupsVal[group] + instance.P[vertex] <= instance.U[group])
+            NS.G[vertex, gSrc] = 0
+            NS.G[vertex, group] = 1
+            NS.gruopsVal[gSrc] -= instance.P[vertex]
+            NS.gruopsVal[group] += instance.P[vertex]
         
         end
     end
     
-    if(N2.group < instance.g)
-        N2.gruop+=1
-    elseif (N2.vertex <instance.n)
-        N2.group = 1
-        N2.vertex+=1
-    else
-        N2.group = 0  #invalid
-    end
     if(NS != nothing)
         return NS
-    elseif(N2.group != 0)
-        return next(N2, instance, solution)
     else
-        return nothing
-    end
-            
-end
-
-type Neigh3
-    v1
-    v2
-    function Neigh3()
-        new(1, 2)
+        return randomN2(instance, solution)
     end
 end
 
-function next(N3::Neigh3, instance, solution)
-    g1 = getGroupOfVertex(N3.v1)
-    g2 = getGroupOfVertex(N3.v2)
+function randomN3(instance, solution)
+    v1 = rand(1:instance.n)
+    v2 = rand(1:instance.n)
+    g1 = getGroupOfVertex(v1)
+    g2 = getGroupOfVertex(v2)
     
     direction = -1 # direction=0 : vértice sai de g1 para g2, direction=1 : oposto; direction=-1 sem trocas válidas
     NS = nothing
     if (g1 != g2)
         
-        if (solution.groupsVal[g1] - instance.P[N3.v1] >= instance.L[g1] && solution.groupsVal[g2] + instance.P[N3.v1] <= instance.U[g2])
+        
+        if (solution.groupsVal[g1] - instance.P[v1] >= instance.L[g1] && solution.groupsVal[g2] + instance.P[v1] <= instance.U[g2])
             NS = solution
-            NS.G[N3.v1, g1] = 0
-            NS.G[N3.v1, g2] = 1
-            NS.groupsVal[g1] -= instance.P[N3.v1]
-            NS.groupsVal[g2] += instance.P[N3.v1]
-        elseif (solution.groupsVal[g2] - instance.P[N3.v2] >= instance.L[g2] && solution.groupsVal[g1] + instance.P[N3.v2] <= instance.U[g1])
+            NS.G[v1, g1] = 0
+            NS.G[v1, g2] = 1
+            NS.groupsVal[g1] -= instance.P[v1]
+            NS.groupsVal[g2] += instance.P[v1]
+        elseif (solution.groupsVal[g2] - instance.P[v2] >= instance.L[g2] && solution.groupsVal[g1] + instance.P[v2] <= instance.U[g1])
             NS = solution
-            NS.G[N3.v2, g1] = 1
-            NS.G[N3.v2, g2] = 0
-            NS.groupsVal[g1] += instance.P[N3.v2]
-            NS.groupsVal[g2] -= instance.P[N3.v2]
+            NS.G[v2, g1] = 1
+            NS.G[v2, g2] = 0
+            NS.groupsVal[g1] += instance.P[v2]
+            NS.groupsVal[g2] -= instance.P[v2]
         end
-    end
-    if (N3.v2<instance.n)
-        N3.v2 +=1
-    elseif (N3.v1<instance.n-1)
-        N3.v1+=1
-        N3.v2=1
-    else
-        N3.v2 = 0 #invalid
     end
     if (NS != nothing)
         return NS
-    elseif(N3.v2!=0)
-        return next(N3, instance, solution)
     else
-        return nothing
+        return randomN3(instance, solution)
     end
+end
+
+RandomNeigh = [randomN0, randomN1, randomN2, randomN3]
+
+        #Implementa Hill Climbing com first improvement usando vizinhança Neigh0
+function LocalSearch(solution)
+    N = Neigh0(1, 2) # first two groups
+    
+    Val = nextN0(N,inst, solution)
+
+    if Val != nothing
+        candidate = Val[1]
+        N = Val[2]
+    end
+    while (candidate != nothing)
+        if evaluate(inst, candidate) > evaluate(inst, solution)
+            return LocalSearch(candidate)
+        end
+        Val = nextN0(N,inst, solution)
+
+        if Val != nothing
+            candidate = Val[1]
+            N = Val[2]
+        end 
+    end
+    return candidate
+end
+
+function VNS(init)
+    beg = now()
+    
+    curr = now()
+    while curr - beg < Base.Dates.Hour(1)
         
+        k = 1
+        bestSol = init
+
+        while k <= 4
+            println("Iter with k = $k")
+            currentNeigh = RandomNeigh[k]
+            randomSol = currentNeigh(inst, bestSol) # shake
+            currentSol = LocalSearch(randomSol)
+            (bestSol, k) = Movement(bestSol, currentSol, k)
+            curr = now()
+            if (curr - beg > Base.Dates.Hour(1))
+                break
+            end
+        end
+    end
+    
 end
 
+    
 
-a = now() 
-for i=1:10000000
-    1+1
-end
-b = now()
-Base.Dates.Hour(1) > Base.Dates.Minute(59)
+VNS(S)
+
+
