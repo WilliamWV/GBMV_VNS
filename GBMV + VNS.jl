@@ -178,7 +178,8 @@ evaluate(inst, S)
 
 function Movement(best, candidate, k)
     if (evaluate(inst, candidate) > evaluate(inst, best))
-        best = candidate
+		println("Candidate : $(evaluate(inst, candidate)), Best = $(evaluate(inst, best))")
+        best = deepcopy(candidate)
         k = 1
     else
         k+=1
@@ -220,6 +221,9 @@ struct Neigh0
 end
 
 function nextN0(N0, instance, solution)
+	if (N0.g1 == 0 || N0.g2 == 0)
+		return nothing
+	end
     G1 = solution.G[:,N0.g1]
     G2 = solution.G[:,N0.g2]
     maxEdgeN1 = 0
@@ -245,7 +249,7 @@ function nextN0(N0, instance, solution)
     end
     
     
-    NS = solution
+    NS = deepcopy(solution)
     if (direction == 0)
         NS.G[maxEdgeN1, N0.g1] = 0
         NS.G[maxEdgeN1, N0.g2] = 1
@@ -259,7 +263,6 @@ function nextN0(N0, instance, solution)
     else
         NS = nothing
     end
-    
     
     #Configure to next 
     if (N0.g2 < instance.g)
@@ -277,7 +280,6 @@ function nextN0(N0, instance, solution)
     if (NS != nothing)
         return (NS, newN0)
     elseif (Ng1 != 0)
-        
         return nextN0(newN0, instance, solution)
     else
         return nothing
@@ -343,19 +345,19 @@ function randomN0(instance, solution)
 end
 
 function randomN1(instance, solution)
-    worstVertex = 0
+	worstVertex = 0
     worstVal = 1.0
     gSrc = rand(1:instance.g)
     gDest = rand(1:instance.g)
+	
     while gDest == gSrc
         gDest = rand(1:instance.g)
     end
-    
     for i = 1:instance.n
         if(VertexIsOfGroup(i, gSrc, solution))
             #Calcula aproveitamento
             total = sum(instance.A[i,j] + instance.A[j,i] for j=1:instance.n) # A tabela de arestas é triangular, logo somar pela linha i e pela coluna i significa somar o valor de todas as arestas do vértice i
-            inGroup = sum((instance.A[i,j] + instance.A[j,i]) * solution.G[j,N1.gSrc] for j = 1:instance.n)
+            inGroup = sum((instance.A[i,j] + instance.A[j,i]) * solution.G[j,gSrc] for j = 1:instance.n)
             
             exploitation = inGroup/total
             if (exploitation < worstVal && solution.groupsVal[gSrc] - instance.P[i] >= instance.L[gSrc] && solution.grupsVal[gDest] + instance.P[i] <= instance.U[gDest])
@@ -364,9 +366,9 @@ function randomN1(instance, solution)
             end
             
         end
-        NS = solution
+        NS = deepcopy(solution)
         if(worstVertex != 0)
-            NS.G[worstVertex, N1.gSrc] = 0
+			NS.G[worstVertex, N1.gSrc] = 0
             NS.G[worstVertex, N1.gDest] = 1
             NS.groupsVal[N1.gSrc] -= instance.P[worstVertex]
             NS.groupsVal[N1.gDest] += instance.P[worstVertex]
@@ -445,49 +447,57 @@ RandomNeigh = [randomN0, randomN1, randomN2, randomN3]
 
         #Implementa Hill Climbing com first improvement usando vizinhança Neigh0
 function LocalSearch(solution)
-    N = Neigh0(1, 2) # first two groups
-    
-    Val = nextN0(N,inst, solution)
+	current = deepcopy(solution)
+	N = Neigh0(1, 2) # first two groups
+    betterOption = true
+	while(betterOption)
+		Val = nextN0(N,inst, current)
 
-    if Val != nothing
-        candidate = Val[1]
-        N = Val[2]
-    end
-    while (candidate != nothing)
-        if evaluate(inst, candidate) > evaluate(inst, solution)
-            return LocalSearch(candidate)
-        end
-        Val = nextN0(N,inst, solution)
-
-        if Val != nothing
-            candidate = Val[1]
-            N = Val[2]
-        end 
-    end
-    return candidate
+		if Val != nothing
+			candidate = Val[1]
+			N = Val[2]
+			if evaluate(inst, candidate) > evaluate(inst, current)
+				current = candidate
+				N = Neigh0(1, 2)
+			end
+		else 
+			betterOption = false
+		
+		end
+		
+	end
+    println("Will return solution that has value $(evaluate(inst, current))")
+    return current
 end
 
 function VNS(init)
     beg = now()
     
     curr = now()
+	bestSol = init
     while curr - beg < Base.Dates.Hour(1)
         
         k = 1
-        bestSol = init
+        
 
         while k <= 4
-            println("Iter with k = $k")
             currentNeigh = RandomNeigh[k]
-            randomSol = currentNeigh(inst, bestSol) # shake
-            currentSol = LocalSearch(randomSol)
-            (bestSol, k) = Movement(bestSol, currentSol, k)
-            curr = now()
-            if (curr - beg > Base.Dates.Hour(1))
-                break
-            end
+			try
+				randomSol = currentNeigh(inst, deepcopy(bestSol)) # shake
+				currentSol = LocalSearch(randomSol)
+				(bestSol, k) = Movement(bestSol, currentSol, k)
+				curr = now()
+				if (curr - beg > Base.Dates.Hour(1))
+					break
+				end
+			catch x
+				k+=1
+			end
+			
         end
-    end
+		
+		
+	end
     
 end
 
